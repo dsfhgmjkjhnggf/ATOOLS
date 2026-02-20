@@ -86,13 +86,24 @@ local Set={
     }
 }
 
-
 local Stats = {}
 local Stats_Defaults  = {pm = 0, Kick = 0, mute = 0, v_mute = 0, f_mute = 0, jail = 0, gunban = 0, warn = 0, ban = 0, sban = 0}
 
+
+local requests = require('requests')
+local json = require('json')
+
+local D_Status, Date
 function initDay()
-    local t = os.date('*t')
-    local key = string.format('%04d-%02d-%02d', t.year, t.month, t.day)
+    local response = requests.get('https://timeapi.io/api/time/current/zone?timeZone=Europe/Moscow')
+    if response.status_code ~= 200 then 
+        sampAddChatMessage("Не удалось получить время. Счетчик не работает. Чтобы повторить нажмите CTRL + R", -1)
+        return false, 'error' .. response.status_code
+    end
+    local data = json.decode(response.text)
+    if not data or not data.date then return 'undefined' end
+    local month, day, year = data.date:match('(%d+)/(%d+)/(%d+)')
+    local key = day .. '.' .. month .. '.' .. year
     if not Stats[key] then
         Stats[key] = {}
         for k, v in pairs(Stats_Defaults) do
@@ -100,8 +111,16 @@ function initDay()
         end
         Stats()
     end
+    return true, day .. '.' .. month .. '.' .. year
 end
 
+function AddStat(statName, value)
+    if D_Status then
+        local key = Date
+        if Stats[key] then Stats[key][statName] = Stats[key][statName] + value end
+        Stats()
+    end
+end
 
 local newFrame = imgui.OnFrame(function() return wMain[0] end, function(player)
     imgui.SetNextWindowPos(imgui.ImVec2(sizeX / 2, sizeY / 2), imgui.Cond.FirstUseEver, imgui.ImVec2(0.5, 0.5))
@@ -337,20 +356,18 @@ function Visual()
     return false
 end
 
-
 -- Главаня функция
 function main()
-    if not doesDirectoryExist(getWorkingDirectory()..'/config/IRA') then
-        createDirectory(getWorkingDirectory()..'/config/IRA')
-    end
+    if not doesDirectoryExist(getWorkingDirectory()..'/config/IRA') then createDirectory(getWorkingDirectory()..'/config/IRA') end
     cjc.load("config/IRA/Settings.json", Set)
     cjc.load("config/IRA/Stats.json", Stats)
-    initDay()
+    D_Status, Date = initDay()
+    sampRegisterChatCommand('pm',function() AddStat("pm", 2) end)
     sampRegisterChatCommand('cc',function() wMain[0] = not wMain[0] end)
     if Set.Vis.Tag.Active[0] then nameTagON() else nameTagOFF() end
     lua_thread.create(Visual)
     while true do
-        wait(0)
+        wait(200)
     end
 end
 
@@ -477,3 +494,10 @@ function imgui.CustomMenu(labels, selected, size, speed, centering)
     end
     return bool
 end
+
+
+--function sampev.onServerMessage(color, text)
+ --  if text:find("Администратор%s+Maksim_Five%[%d+%]%s+для") then
+ --      AddStat("pm", 2)
+ --  end
+--end
