@@ -7,4 +7,11 @@ function G.fibonacci()
         return val
     end
 end
+
+function G.random(a, b)
+    math.randomseed(os.time())
+    return function()
+        return math.random(a, b)
+    end
+end
 return G
