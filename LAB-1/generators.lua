@@ -7,4 +7,4 @@ function G.fibonacci()
         return val
     end
 end
-return
+return G
