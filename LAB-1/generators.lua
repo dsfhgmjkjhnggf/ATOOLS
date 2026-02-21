@@ -34,4 +34,17 @@ function G.counter_generator(start, step)
         return val
     end
 end
+
+local Charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+function G.random_string(min_len, max_len)
+    return function()
+        local len = math.random(min_len, max_len)
+        local s = {}
+        for i = 1, len do
+            local index = math.random(1, #Charset)
+            s[i] = Charset:sub(index, index)
+        end
+        return table.concat(s)
+    end
+end
 return G
