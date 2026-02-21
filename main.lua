@@ -1,6 +1,7 @@
 local imgui = require 'mimgui'
 local new = imgui.new
 
+local generator = require "LAB-1/generators"
 
 local faicons = require('fAwesome6')
 local encoding = require 'encoding'
@@ -240,8 +241,6 @@ local newFrame = imgui.OnFrame(function() return wMain[0] end, function(player)
     imgui.EndChild()
     imgui.End()
 end)
-
-
 imgui.OnInitialize(function()
     imgui.GetIO().IniFilename = nil
     
@@ -300,7 +299,7 @@ function Visual()
                     local enPosScreen = {convert3DCoordsToScreen(enPos[1], enPos[2], enPos[3])} -- 2D координаты игрока
                     renderDrawLine(myPosScreen[1], myPosScreen[2], enPosScreen[1], enPosScreen[2], Set.Vis.Lines.Thickness[0], color) -- Отрисовываем
                 end
-
+                
                 -- Кости
                 if Set.Vis.Bones.Active[0] and distance < Set.Vis.Bones.VisDistance[0] then
                     local color
@@ -310,6 +309,8 @@ function Visual()
                         color = join_rgba(Set.Vis.Bones.ClrStat[0], Set.Vis.Bones.ClrStat[1], Set.Vis.Bones.ClrStat[2], Set.Vis.Bones.ClrStat[3])
                     elseif Set.Vis.Bones.ClrType[0] == 2 then
                         if Set.Vis.Bones.ClrDynShift[0] then color = rainbow(Set.Vis.Bones.ClrDynSpeed[0], Set.Vis.Bones.ClrDynAlph[0], i*20) else color = rainbow(Set.Vis.Bones.ClrDynSpeed[0], Set.Vis.Bones.ClrDynAlph[0]) end
+                    elseif Set.Vis.Bones.ClrType[0] == 3 then
+                        color = wallColor
                     end
 
                     local t = {3, 4, 5, 51, 52, 41, 42, 31, 32, 33, 21, 22, 23, 2}  -- Список ID костей
@@ -355,7 +356,8 @@ function Visual()
     end
     return false
 end
-
+list = {0xFF736d5d, 0xFF2bff00}
+local gen = generator.round_robin(list)
 -- Главаня функция
 function main()
     if not doesDirectoryExist(getWorkingDirectory()..'/config/IRA') then createDirectory(getWorkingDirectory()..'/config/IRA') end
@@ -366,6 +368,12 @@ function main()
     sampRegisterChatCommand('cc',function() wMain[0] = not wMain[0] end)
     if Set.Vis.Tag.Active[0] then nameTagON() else nameTagOFF() end
     lua_thread.create(Visual)
+    lua_thread.create(function()
+    while true do
+        wallColor = gen()
+        wait(500)
+    end
+end)
     while true do
         wait(200)
     end
