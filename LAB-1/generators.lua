@@ -26,4 +26,12 @@ function G.round_robin(list)
         return val
     end
 end
+
+function G.counter_generator(start, step)
+    local val = (start or 0) - (step or 1)
+    return function()
+        val = val + (step or 1)
+        return val
+    end
+end
 return G

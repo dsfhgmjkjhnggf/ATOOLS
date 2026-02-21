@@ -2,6 +2,7 @@ local generator = require "LAB-1/generators"
 local gen_fibonacci = nil
 local gen_random = nil
 local gen_round_robin = nil
+local counter_generator = nil
 
 function main()
     sampRegisterChatCommand("gen-1", function() if not gen_fibonacci then gen_fibonacci = generator.fibonacci() else gen_fibonacci = nil end end)
@@ -29,10 +30,22 @@ function main()
         else gen_round_robin = nil end
     end)
 
+    sampRegisterChatCommand("gen-4", function(arg)
+        if not counter_generator then
+            local arg1, arg2 = arg:match("^(%S+)%s+(%S+)$")
+            if not arg1 or not arg2 then
+                sampAddChatMessage("/gen-4 [Начальное] [Шаг]", -1)
+                return
+            end
+            counter_generator = generator.counter_generator(arg1, arg2)
+        else counter_generator = nil end
+    end)
+
     while true do
         wait(500)
         if gen_fibonacci then sampAddChatMessage("Финабоччи:"..gen_fibonacci(), -1) end
         if gen_random then sampAddChatMessage("Рандом: "..gen_random(), -1) end
         if gen_round_robin then sampAddChatMessage("round_robin лист: "..gen_round_robin(), -1) end
+        if counter_generator then sampAddChatMessage("Счетчик "..counter_generator(), -1) end
     end
 end
