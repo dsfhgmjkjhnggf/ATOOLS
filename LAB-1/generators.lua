@@ -14,4 +14,16 @@ function G.random(a, b)
         return math.random(a, b)
     end
 end
+
+function G.round_robin(list)
+    local index = 1
+    return function()
+        local val = list[index]
+        index = index + 1
+        if index > #list then
+            index = 1
+        end
+        return val
+    end
+end
 return G
