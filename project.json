@@ -1,0 +1,14 @@
+{
+    "name": "ATOOLS",
+    "version": "1.0.0",
+    "author": "Ruslan Benediuk",
+    "license": "MIT",
+    "description": "SAMP atools",
+    "language": "Lua",
+    "dependencies": {
+        "mimgui": "latest",
+        "fAwesome6": "latest",
+        "encoding": "latest",
+        "carbjsonconfig": "latest"
+    }
+}
