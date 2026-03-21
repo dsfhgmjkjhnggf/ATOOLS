@@ -39,10 +39,20 @@ local function evict_lfu(cache, meta)
         meta[min_key] = nil
     end
 end
+local function cleanup_expired(cache, meta, ttl)
+    local now = os.time()
+    for k, m in pairs(meta) do
+        if now - m.created_at >= ttl then
+            cache[k] = nil
+            meta[k] = nil
+        end
+    end
+end
 function memoize.new(fn, options)
     options = options or {}
     local max_size = options.max_size
     local policy = options.policy or "lru"
+    local ttl = options.ttl
     local cache = {}
     local meta = {}
     local clock = 0
@@ -50,6 +60,9 @@ function memoize.new(fn, options)
         local args = {...}
         local key = make_key(args)
         clock = clock + 1
+        if ttl then
+            cleanup_expired(cache, meta, ttl)
+        end
         if cache[key] ~= nil then
             if meta[key] then
                 meta[key].last_used = clock
@@ -66,7 +79,7 @@ function memoize.new(fn, options)
         end
         local result = fn(...)
         cache[key] = result
-        meta[key] = { last_used = clock, freq = 1 }
+        meta[key] = { last_used = clock, freq = 1, created_at = os.time() }
         return result
     end
 end
