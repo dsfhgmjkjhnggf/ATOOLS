@@ -294,6 +294,10 @@ function Visual()
                         color = join_rgba(Set.Vis.Lines.ClrStat[0], Set.Vis.Lines.ClrStat[1], Set.Vis.Lines.ClrStat[2], Set.Vis.Lines.ClrStat[3])
                     elseif Set.Vis.Lines.ClrType[0] == 2 then
                         if Set.Vis.Lines.ClrDynShift[0] then color = rainbow(Set.Vis.Lines.ClrDynSpeed[0], Set.Vis.Lines.ClrDynAlph[0], i*20) else color = rainbow(Set.Vis.Lines.ClrDynSpeed[0], Set.Vis.Lines.ClrDynAlph[0]) end
+                    elseif Set.Vis.Lines.ClrType[0] == 3 then
+                        if isLineOfSightClear(myPos[1], myPos[2], myPos[3], enPos[1], enPos[2], enPos[3], true, true, false, true, true) then
+                            color = 0xFFff1100
+                        else color = wallColor end
                     end
                     local myPosScreen = {convert3DCoordsToScreen(myPos[1], myPos[2], myPos[3])} -- 2D координаты моего персонажа
                     local enPosScreen = {convert3DCoordsToScreen(enPos[1], enPos[2], enPos[3])} -- 2D координаты игрока
@@ -310,7 +314,9 @@ function Visual()
                     elseif Set.Vis.Bones.ClrType[0] == 2 then
                         if Set.Vis.Bones.ClrDynShift[0] then color = rainbow(Set.Vis.Bones.ClrDynSpeed[0], Set.Vis.Bones.ClrDynAlph[0], i*20) else color = rainbow(Set.Vis.Bones.ClrDynSpeed[0], Set.Vis.Bones.ClrDynAlph[0]) end
                     elseif Set.Vis.Bones.ClrType[0] == 3 then
-                        color = wallColor
+                        if isLineOfSightClear(myPos[1], myPos[2], myPos[3], enPos[1], enPos[2], enPos[3], true, true, false, true, true) then
+                            color = 0xFFff1100
+                        else color = wallColor end
                     end
 
                     local t = {3, 4, 5, 51, 52, 41, 42, 31, 32, 33, 21, 22, 23, 2}  -- Список ID костей
@@ -337,6 +343,10 @@ function Visual()
                             color = join_rgba(Set.Vis.BoneEnds.ClrStat[0], Set.Vis.BoneEnds.ClrStat[1], Set.Vis.BoneEnds.ClrStat[2], Set.Vis.BoneEnds.ClrStat[3])
                         elseif Set.Vis.BoneEnds.ClrType[0] == 2 then
                             if Set.Vis.BoneEnds.ClrDynShift[0] then color = rainbow(Set.Vis.BoneEnds.ClrDynSpeed[0], Set.Vis.BoneEnds.ClrDynAlph[0], i*20) else color = rainbow(Set.Vis.BoneEnds.ClrDynSpeed[0], Set.Vis.BoneEnds.ClrDynAlph[0]) end
+                        elseif Set.Vis.BoneEnds.ClrType[0] == 3 then
+                            if isLineOfSightClear(myPos[1], myPos[2], myPos[3], enPos[1], enPos[2], enPos[3], true, true, false, true, true) then
+                                color = 0xFFff1100
+                            else color = wallColor end
                         end
                         local FigureTypes = {4, 30, 3, 5}
                         local Ends_Type = FigureTypes[Set.Vis.BoneEnds.Figure[0] + 1]
@@ -356,8 +366,8 @@ function Visual()
     end
     return false
 end
-list = {0xFF736d5d, 0xFF2bff00}
-local gen = generator.round_robin(list)
+Clr_WallIndicator = {0xFF001eff, 0xFF00ff0d}
+local gen = generator.round_robin(Clr_WallIndicator)
 -- Главаня функция
 function main()
     if not doesDirectoryExist(getWorkingDirectory()..'/config/IRA') then createDirectory(getWorkingDirectory()..'/config/IRA') end
