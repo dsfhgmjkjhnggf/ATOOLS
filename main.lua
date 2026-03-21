@@ -18,6 +18,12 @@ local mem = require "memory"
 
 local cjc = require("carbjsonconfig")
 
+local memoize = require "LAB-3/memoize"
+local cachedBonePos
+local cachedToScreen
+local cachedPlayerColor
+local cachedExplodeArgb
+
 -- Текст меню
 local tab = imgui.new.int(1)
 local tabs = {
@@ -280,10 +286,17 @@ function Visual()
     for i = 0, sampGetMaxPlayerId(true) do -- Цикл по всем ID игроков на сервере
         if sampIsPlayerConnected(i) then -- Проверка подключён ли игрок
             local find, handle = sampGetCharHandleBySampPlayerId(i) -- Получаем handle персонажа по ID игрока
-            if find and doesCharExist(handle) and isCharOnScreen(handle)  then -- Игрок найден | персонаж существует | персонаж в зоне видимости
-                local sampPlayerColor = sampGetPlayerColor(i) -- Поулчаем десятичное значение samp цвета
-                local aa, rr, gg, bb = explode_argb(sampPlayerColor) -- Разбиваем десятичное значение samp цвета в argb, из-за разницы в форматах напрямую передать нельзя
-                local enPos = {GetBodyPartCoordinates(3, handle)}     -- Координаты точки игрока
+            if find and doesCharExist(handle) and isCharOnScreen(handle) then
+                local boneCache = {}
+                local function getBone(id)
+                    if not boneCache[id] then
+                        boneCache[id] = {GetBodyPartCoordinates(id, handle)}
+                    end
+                    return table.unpack(boneCache[id])
+                end
+                local sampPlayerColor = cachedPlayerColor(i)
+                local aa, rr, gg, bb = cachedExplodeArgb(sampPlayerColor)
+                local enPos = {getBone(3)}
                 local distance = getDistanceBetweenCoords3d(myPos[1], myPos[2], myPos[3], enPos[1], enPos[2], enPos[3])
                 -- Линии
                 if Set.Vis.Lines.Active[0] and distance < Set.Vis.Lines.VisDistance[0] then
@@ -322,8 +335,8 @@ function Visual()
                     local t = {3, 4, 5, 51, 52, 41, 42, 31, 32, 33, 21, 22, 23, 2}  -- Список ID костей
                     local pos1Screen
                     for v = 1, #t do
-                        local pos1 = {GetBodyPartCoordinates(t[v], handle)} -- Координаты первой кости
-                        local pos2 = {GetBodyPartCoordinates(t[v] + 1, handle)} -- Координаты второй кости
+                        local pos1 = {getBone(t[v], handle)} -- Координаты первой кости
+                        local pos2 = {getBone(t[v] + 1, handle)} -- Координаты второй кости
                         pos1Screen = {convert3DCoordsToScreen(pos1[1], pos1[2], pos1[3])} -- 3D > 2D первой кости
                         local pos2Screen = {convert3DCoordsToScreen(pos2[1], pos2[2], pos2[3])} -- 3D > 2D второй кости
                         renderDrawLine(pos1Screen[1], pos1Screen[2], pos2Screen[1], pos2Screen[2], Set.Vis.Bones.Thickness[0], color)
@@ -451,6 +464,10 @@ function join_rgba(r, g, b, a) -- Принимает R/G/B/A(1.0), возвра�
     return bit.bor(bit.lshift(a, 24), bit.lshift(r, 16), bit.lshift(g, 8), b)
 end
 
+cachedBonePos = memoize.new(GetBodyPartCoordinates, { ttl = 2 })
+cachedToScreen = memoize.new(convert3DCoordsToScreen, { ttl = 2 })
+cachedPlayerColor = memoize.new(sampGetPlayerColor, { ttl = 2 })
+cachedExplodeArgb = memoize.new(explode_argb, { ttl = 2 })
 
 -- Меню
 function imgui.CustomMenu(labels, selected, size, speed, centering)
