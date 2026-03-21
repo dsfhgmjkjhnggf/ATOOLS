@@ -56,7 +56,19 @@ function memoize.new(fn, options)
     local cache = {}
     local meta = {}
     local clock = 0
-    return function(...)
+    local hits = 0
+    local misses = 0
+    local function do_evict()
+        if type(policy) == "function" then
+            policy(cache, meta)
+        elseif policy == "lru" then
+            evict_lru(cache, meta)
+        elseif policy == "lfu" then
+            evict_lfu(cache, meta)
+        end
+    end
+    local memoized = {}
+    memoized.call = function(...)
         local args = {...}
         local key = make_key(args)
         clock = clock + 1
@@ -64,23 +76,44 @@ function memoize.new(fn, options)
             cleanup_expired(cache, meta, ttl)
         end
         if cache[key] ~= nil then
+            hits = hits + 1
             if meta[key] then
                 meta[key].last_used = clock
                 meta[key].freq = meta[key].freq + 1
             end
             return cache[key]
         end
+        misses = misses + 1
         if max_size and get_size(cache) >= max_size then
-            if policy == "lru" then
-                evict_lru(cache, meta)
-            elseif policy == "lfu" then
-                evict_lfu(cache, meta)
-            end
+            do_evict()
         end
         local result = fn(...)
         cache[key] = result
         meta[key] = { last_used = clock, freq = 1, created_at = os.time() }
         return result
     end
+    memoized.stats = function()
+        return {
+            size = get_size(cache),
+            hits = hits,
+            misses = misses,
+            policy = type(policy) == "function" and "custom" or policy,
+            max_size = max_size or "unlimited",
+            ttl = ttl or "none"
+        }
+    end
+    memoized.clear = function()
+        for k in pairs(cache) do cache[k] = nil end
+        for k in pairs(meta) do meta[k] = nil end
+        hits = 0
+        misses = 0
+        clock = 0
+    end
+    setmetatable(memoized, {
+        __call = function(_, ...)
+            return memoized.call(...)
+        end
+    })
+    return memoized
 end
 return m
