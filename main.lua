@@ -376,6 +376,8 @@ function main()
     D_Status, Date = initDay()
     sampRegisterChatCommand('pm',function() AddStat("pm", 2) end)
     sampRegisterChatCommand('cc',function() wMain[0] = not wMain[0] end)
+    sampRegisterChatCommand('save-cfg',function() Set() end)
+    sampRegisterChatCommand('clear-cfg',function() Set("reset") end)
     if Set.Vis.Tag.Active[0] then nameTagON() else nameTagOFF() end
     lua_thread.create(Visual)
     lua_thread.create(function()

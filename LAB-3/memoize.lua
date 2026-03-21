@@ -25,6 +25,20 @@ local function evict_lru(cache, meta)
         meta[oldest_key] = nil
     end
 end
+local function evict_lfu(cache, meta)
+    local min_key = nil
+    local min_freq = math.huge
+    for k, m in pairs(meta) do
+        if m.freq < min_freq then
+            min_freq = m.freq
+            min_key = k
+        end
+    end
+    if min_key then
+        cache[min_key] = nil
+        meta[min_key] = nil
+    end
+end
 function memoize.new(fn, options)
     options = options or {}
     local max_size = options.max_size
@@ -39,17 +53,20 @@ function memoize.new(fn, options)
         if cache[key] ~= nil then
             if meta[key] then
                 meta[key].last_used = clock
+                meta[key].freq = meta[key].freq + 1
             end
             return cache[key]
         end
         if max_size and get_size(cache) >= max_size then
             if policy == "lru" then
                 evict_lru(cache, meta)
+            elseif policy == "lfu" then
+                evict_lfu(cache, meta)
             end
         end
         local result = fn(...)
         cache[key] = result
-        meta[key] = { last_used = clock }
+        meta[key] = { last_used = clock, freq = 1 }
         return result
     end
 end
