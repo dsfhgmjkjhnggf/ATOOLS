@@ -14,9 +14,9 @@ end
 local function evict_lru(cache, meta)
     local oldest_key = nil
     local oldest_time = math.huge
-    for k, m in pairs(meta) do
-        if m.last_used < oldest_time then
-            oldest_time = m.last_used
+    for k, v in pairs(meta) do
+        if v.last_used < oldest_time then
+            oldest_time = v.last_used
             oldest_key = k
         end
     end
@@ -28,9 +28,9 @@ end
 local function evict_lfu(cache, meta)
     local min_key = nil
     local min_freq = math.huge
-    for k, m in pairs(meta) do
-        if m.freq < min_freq then
-            min_freq = m.freq
+    for k, v in pairs(meta) do
+        if v.freq < min_freq then
+            min_freq = v.freq
             min_key = k
         end
     end
@@ -41,14 +41,14 @@ local function evict_lfu(cache, meta)
 end
 local function cleanup_expired(cache, meta, ttl)
     local now = os.time()
-    for k, m in pairs(meta) do
-        if now - m.created_at >= ttl then
+    for k, v in pairs(meta) do
+        if now - v.created_at >= ttl then
             cache[k] = nil
             meta[k] = nil
         end
     end
 end
-function memoize.new(fn, options)
+function m.new(fn, options)
     options = options or {}
     local max_size = options.max_size
     local policy = options.policy or "lru"
@@ -81,16 +81,16 @@ function memoize.new(fn, options)
                 meta[key].last_used = clock
                 meta[key].freq = meta[key].freq + 1
             end
-            return cache[key]
+            return table.unpack(cache[key])
         end
         misses = misses + 1
         if max_size and get_size(cache) >= max_size then
             do_evict()
         end
-        local result = fn(...)
-        cache[key] = result
+        local results = {fn(...)}
+        cache[key] = results
         meta[key] = { last_used = clock, freq = 1, created_at = os.time() }
-        return result
+        return table.unpack(results)
     end
     memoized.stats = function()
         return {
