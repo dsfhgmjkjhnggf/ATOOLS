@@ -12,7 +12,22 @@ function bipq.new()
             order = self._counter
         })
     end
-
+    function pq:peek(mode)
+        if #self._data == 0 then return nil end
+        local result = self._data[1]
+        for _, entry in ipairs(self._data) do
+            if mode == "highest" and entry.priority > result.priority then
+                result = entry
+            elseif mode == "lowest" and entry.priority < result.priority then
+                result = entry
+            elseif mode == "oldest" and entry.order < result.order then
+                result = entry
+            elseif mode == "newest" and entry.order > result.order then
+                result = entry
+            end
+        end
+        return result.item, result.priority, result.order
+    end
     return pq
 end
 return bipq
