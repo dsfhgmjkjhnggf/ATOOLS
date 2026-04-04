@@ -24,6 +24,9 @@ local cachedToScreen
 local cachedPlayerColor
 local cachedExplodeArgb
 
+local bipq = require "LAB-4/bipq"
+local max_players = 2
+
 -- Текст меню
 local tab = imgui.new.int(1)
 local tabs = {
@@ -281,98 +284,108 @@ function Visual()
             end
         end
     end
-    -- ESP на игроков
     local myPos = {GetBodyPartCoordinates(3, PLAYER_PED)}
-    for i = 0, sampGetMaxPlayerId(true) do -- Цикл по всем ID игроков на сервере
-        if sampIsPlayerConnected(i) then -- Проверка подключён ли игрок
-            local find, handle = sampGetCharHandleBySampPlayerId(i) -- Получаем handle персонажа по ID игрока
+    local playerQueue = bipq.new()
+    for i = 0, sampGetMaxPlayerId(true) do
+        if sampIsPlayerConnected(i) then
+            local find, handle = sampGetCharHandleBySampPlayerId(i)
             if find and doesCharExist(handle) and isCharOnScreen(handle) then
-                local boneCache = {}
-                local function getBone(id)
-                    if not boneCache[id] then
-                        boneCache[id] = {GetBodyPartCoordinates(id, handle)}
-                    end
-                    return table.unpack(boneCache[id])
-                end
-                local sampPlayerColor = cachedPlayerColor(i)
-                local aa, rr, gg, bb = cachedExplodeArgb(sampPlayerColor)
-                local enPos = {getBone(3)}
-                local distance = getDistanceBetweenCoords3d(myPos[1], myPos[2], myPos[3], enPos[1], enPos[2], enPos[3])
-                -- Линии
-                if Set.Vis.Lines.Active[0] and distance < Set.Vis.Lines.VisDistance[0] then
-                    local color
-                    if Set.Vis.Lines.ClrType[0] == 0 then
-                        color = join_argb(Set.Vis.Lines.ClrStdAlph[0], rr, gg, bb)
-                    elseif Set.Vis.Lines.ClrType[0] == 1 then
-                        color = join_rgba(Set.Vis.Lines.ClrStat[0], Set.Vis.Lines.ClrStat[1], Set.Vis.Lines.ClrStat[2], Set.Vis.Lines.ClrStat[3])
-                    elseif Set.Vis.Lines.ClrType[0] == 2 then
-                        if Set.Vis.Lines.ClrDynShift[0] then color = rainbow(Set.Vis.Lines.ClrDynSpeed[0], Set.Vis.Lines.ClrDynAlph[0], i*20) else color = rainbow(Set.Vis.Lines.ClrDynSpeed[0], Set.Vis.Lines.ClrDynAlph[0]) end
-                    elseif Set.Vis.Lines.ClrType[0] == 3 then
-                        if isLineOfSightClear(myPos[1], myPos[2], myPos[3], enPos[1], enPos[2], enPos[3], true, true, false, true, true) then
-                            color = 0xFFff1100
-                        else color = wallColor end
-                    end
-                    local myPosScreen = {convert3DCoordsToScreen(myPos[1], myPos[2], myPos[3])} -- 2D координаты моего персонажа
-                    local enPosScreen = {convert3DCoordsToScreen(enPos[1], enPos[2], enPos[3])} -- 2D координаты игрока
-                    renderDrawLine(myPosScreen[1], myPosScreen[2], enPosScreen[1], enPosScreen[2], Set.Vis.Lines.Thickness[0], color) -- Отрисовываем
-                end
-                
-                -- Кости
-                if Set.Vis.Bones.Active[0] and distance < Set.Vis.Bones.VisDistance[0] then
-                    local color
-                    if Set.Vis.Bones.ClrType[0] == 0 then
-                        color = join_argb(Set.Vis.Bones.ClrStdAlph[0], rr, gg, bb)
-                    elseif Set.Vis.Bones.ClrType[0] == 1 then
-                        color = join_rgba(Set.Vis.Bones.ClrStat[0], Set.Vis.Bones.ClrStat[1], Set.Vis.Bones.ClrStat[2], Set.Vis.Bones.ClrStat[3])
-                    elseif Set.Vis.Bones.ClrType[0] == 2 then
-                        if Set.Vis.Bones.ClrDynShift[0] then color = rainbow(Set.Vis.Bones.ClrDynSpeed[0], Set.Vis.Bones.ClrDynAlph[0], i*20) else color = rainbow(Set.Vis.Bones.ClrDynSpeed[0], Set.Vis.Bones.ClrDynAlph[0]) end
-                    elseif Set.Vis.Bones.ClrType[0] == 3 then
-                        if isLineOfSightClear(myPos[1], myPos[2], myPos[3], enPos[1], enPos[2], enPos[3], true, true, false, true, true) then
-                            color = 0xFFff1100
-                        else color = wallColor end
-                    end
+                local x, y, z = GetBodyPartCoordinates(3, handle)
+                local dist = getDistanceBetweenCoords3d(myPos[1], myPos[2], myPos[3],x, y, z)
+                playerQueue:enqueue({id = i,handle = handle,dist = dist}, -dist)
+            end
+        end
+    end
+    local rendered = 0
+    while not playerQueue:isEmpty() and rendered < max_players do
+        local player = playerQueue:dequeue("highest")
+        local i = player.id
+        local handle = player.handle
+        local distance = player.dist
+        rendered = rendered + 1
+        local boneCache = {}
+        local function getBone(id)
+            if not boneCache[id] then
+                boneCache[id] = {GetBodyPartCoordinates(id, handle)}
+            end
+            return table.unpack(boneCache[id])
+        end
+        local sampPlayerColor = cachedPlayerColor(i)
+        local aa, rr, gg, bb = cachedExplodeArgb(sampPlayerColor)
+        local enPos = {getBone(3)}
+        local distance = getDistanceBetweenCoords3d(myPos[1], myPos[2], myPos[3], enPos[1], enPos[2], enPos[3])
+        -- Линии
+        if Set.Vis.Lines.Active[0] and distance < Set.Vis.Lines.VisDistance[0] then
+            local color
+            if Set.Vis.Lines.ClrType[0] == 0 then
+                color = join_argb(Set.Vis.Lines.ClrStdAlph[0], rr, gg, bb)
+            elseif Set.Vis.Lines.ClrType[0] == 1 then
+                color = join_rgba(Set.Vis.Lines.ClrStat[0], Set.Vis.Lines.ClrStat[1], Set.Vis.Lines.ClrStat[2], Set.Vis.Lines.ClrStat[3])
+            elseif Set.Vis.Lines.ClrType[0] == 2 then
+                if Set.Vis.Lines.ClrDynShift[0] then color = rainbow(Set.Vis.Lines.ClrDynSpeed[0], Set.Vis.Lines.ClrDynAlph[0], i*20) else color = rainbow(Set.Vis.Lines.ClrDynSpeed[0], Set.Vis.Lines.ClrDynAlph[0]) end
+            elseif Set.Vis.Lines.ClrType[0] == 3 then
+                if isLineOfSightClear(myPos[1], myPos[2], myPos[3], enPos[1], enPos[2], enPos[3], true, true, false, true, true) then
+                    color = 0xFFff1100
+                else color = wallColor end
+            end
+            local myPosScreen = {convert3DCoordsToScreen(myPos[1], myPos[2], myPos[3])} -- 2D координаты моего персонажа
+            local enPosScreen = {convert3DCoordsToScreen(enPos[1], enPos[2], enPos[3])} -- 2D координаты игрока
+            renderDrawLine(myPosScreen[1], myPosScreen[2], enPosScreen[1], enPosScreen[2], Set.Vis.Lines.Thickness[0], color) -- Отрисовываем
+        end
+        -- Кости
+        if Set.Vis.Bones.Active[0] and distance < Set.Vis.Bones.VisDistance[0] then
+            local color
+            if Set.Vis.Bones.ClrType[0] == 0 then
+                color = join_argb(Set.Vis.Bones.ClrStdAlph[0], rr, gg, bb)
+            elseif Set.Vis.Bones.ClrType[0] == 1 then
+                color = join_rgba(Set.Vis.Bones.ClrStat[0], Set.Vis.Bones.ClrStat[1], Set.Vis.Bones.ClrStat[2], Set.Vis.Bones.ClrStat[3])
+            elseif Set.Vis.Bones.ClrType[0] == 2 then
+                if Set.Vis.Bones.ClrDynShift[0] then color = rainbow(Set.Vis.Bones.ClrDynSpeed[0], Set.Vis.Bones.ClrDynAlph[0], i*20) else color = rainbow(Set.Vis.Bones.ClrDynSpeed[0], Set.Vis.Bones.ClrDynAlph[0]) end
+            elseif Set.Vis.Bones.ClrType[0] == 3 then
+                if isLineOfSightClear(myPos[1], myPos[2], myPos[3], enPos[1], enPos[2], enPos[3], true, true, false, true, true) then
+                    color = 0xFFff1100
+                else color = wallColor end
+            end
 
-                    local t = {3, 4, 5, 51, 52, 41, 42, 31, 32, 33, 21, 22, 23, 2}  -- Список ID костей
-                    local pos1Screen
-                    for v = 1, #t do
-                        local pos1 = {getBone(t[v], handle)} -- Координаты первой кости
-                        local pos2 = {getBone(t[v] + 1, handle)} -- Координаты второй кости
-                        pos1Screen = {convert3DCoordsToScreen(pos1[1], pos1[2], pos1[3])} -- 3D > 2D первой кости
-                        local pos2Screen = {convert3DCoordsToScreen(pos2[1], pos2[2], pos2[3])} -- 3D > 2D второй кости
-                        renderDrawLine(pos1Screen[1], pos1Screen[2], pos2Screen[1], pos2Screen[2], Set.Vis.Bones.Thickness[0], color)
-                    end
-                    for v = 4, 5 do -- Дополнительные соединения
-                        local pos2 = {GetBodyPartCoordinates(v * 10 + 1, handle)}
-                        local pos2Screen = {convert3DCoordsToScreen(pos2[1], pos2[2], pos2[3])}
-                        renderDrawLine(pos1Screen[1], pos1Screen[2], pos2Screen[1], pos2Screen[2], Set.Vis.Bones.Thickness[0], color)
-                    end
+            local t = {3, 4, 5, 51, 52, 41, 42, 31, 32, 33, 21, 22, 23, 2}  -- Список ID костей
+            local pos1Screen
+            for v = 1, #t do
+                local pos1 = {getBone(t[v], handle)} -- Координаты первой кости
+                local pos2 = {getBone(t[v] + 1, handle)} -- Координаты второй кости
+                pos1Screen = {convert3DCoordsToScreen(pos1[1], pos1[2], pos1[3])} -- 3D > 2D первой кости
+                local pos2Screen = {convert3DCoordsToScreen(pos2[1], pos2[2], pos2[3])} -- 3D > 2D второй кости
+                renderDrawLine(pos1Screen[1], pos1Screen[2], pos2Screen[1], pos2Screen[2], Set.Vis.Bones.Thickness[0], color)
+            end
+            for v = 4, 5 do -- Дополнительные соединения
+                local pos2 = {GetBodyPartCoordinates(v * 10 + 1, handle)}
+                local pos2Screen = {convert3DCoordsToScreen(pos2[1], pos2[2], pos2[3])}
+                renderDrawLine(pos1Screen[1], pos1Screen[2], pos2Screen[1], pos2Screen[2], Set.Vis.Bones.Thickness[0], color)
+            end
 
-                    -- Концы костей
-                    if Set.Vis.BoneEnds.Active[0] then
-                        local color
-                        if Set.Vis.BoneEnds.ClrType[0] == 0 then
-                            color = join_argb(Set.Vis.BoneEnds.ClrStdAlph[0], rr, gg, bb)
-                        elseif Set.Vis.BoneEnds.ClrType[0] == 1 then
-                            color = join_rgba(Set.Vis.BoneEnds.ClrStat[0], Set.Vis.BoneEnds.ClrStat[1], Set.Vis.BoneEnds.ClrStat[2], Set.Vis.BoneEnds.ClrStat[3])
-                        elseif Set.Vis.BoneEnds.ClrType[0] == 2 then
-                            if Set.Vis.BoneEnds.ClrDynShift[0] then color = rainbow(Set.Vis.BoneEnds.ClrDynSpeed[0], Set.Vis.BoneEnds.ClrDynAlph[0], i*20) else color = rainbow(Set.Vis.BoneEnds.ClrDynSpeed[0], Set.Vis.BoneEnds.ClrDynAlph[0]) end
-                        elseif Set.Vis.BoneEnds.ClrType[0] == 3 then
-                            if isLineOfSightClear(myPos[1], myPos[2], myPos[3], enPos[1], enPos[2], enPos[3], true, true, false, true, true) then
-                                color = 0xFFff1100
-                            else color = wallColor end
-                        end
-                        local FigureTypes = {4, 30, 3, 5}
-                        local Ends_Type = FigureTypes[Set.Vis.BoneEnds.Figure[0] + 1]
-                        local t = {53, 43, 24, 34, 6}
-                        for v = 1, #t do
-                            local pos = {GetBodyPartCoordinates(t[v], handle)} -- Координаты конечной кости
-                            local pos1Screen = {convert3DCoordsToScreen(pos[1], pos[2], pos[3])} -- 3D > 2D
-                            local size = Set.Vis.BoneEnds.Size[0] / math.sqrt(distance / 2)
-                            if size < 2 then size = 2 end
-                            if size > Set.Vis.BoneEnds.Size[0] then size = Set.Vis.BoneEnds.Size[0] end
-                            renderDrawPolygon(pos1Screen[1],pos1Screen[2], size, size, Ends_Type, Set.Vis.BoneEnds.Rotation[0], color)
-                        end
-                    end
+            -- Концы костей
+            if Set.Vis.BoneEnds.Active[0] then
+                local color
+                if Set.Vis.BoneEnds.ClrType[0] == 0 then
+                    color = join_argb(Set.Vis.BoneEnds.ClrStdAlph[0], rr, gg, bb)
+                elseif Set.Vis.BoneEnds.ClrType[0] == 1 then
+                    color = join_rgba(Set.Vis.BoneEnds.ClrStat[0], Set.Vis.BoneEnds.ClrStat[1], Set.Vis.BoneEnds.ClrStat[2], Set.Vis.BoneEnds.ClrStat[3])
+                elseif Set.Vis.BoneEnds.ClrType[0] == 2 then
+                    if Set.Vis.BoneEnds.ClrDynShift[0] then color = rainbow(Set.Vis.BoneEnds.ClrDynSpeed[0], Set.Vis.BoneEnds.ClrDynAlph[0], i*20) else color = rainbow(Set.Vis.BoneEnds.ClrDynSpeed[0], Set.Vis.BoneEnds.ClrDynAlph[0]) end
+                elseif Set.Vis.BoneEnds.ClrType[0] == 3 then
+                    if isLineOfSightClear(myPos[1], myPos[2], myPos[3], enPos[1], enPos[2], enPos[3], true, true, false, true, true) then
+                        color = 0xFFff1100
+                    else color = wallColor end
+                end
+                local FigureTypes = {4, 30, 3, 5}
+                local Ends_Type = FigureTypes[Set.Vis.BoneEnds.Figure[0] + 1]
+                local t = {53, 43, 24, 34, 6}
+                for v = 1, #t do
+                    local pos = {GetBodyPartCoordinates(t[v], handle)} -- Координаты конечной кости
+                    local pos1Screen = {convert3DCoordsToScreen(pos[1], pos[2], pos[3])} -- 3D > 2D
+                    local size = Set.Vis.BoneEnds.Size[0] / math.sqrt(distance / 2)
+                    if size < 2 then size = 2 end
+                    if size > Set.Vis.BoneEnds.Size[0] then size = Set.Vis.BoneEnds.Size[0] end
+                    renderDrawPolygon(pos1Screen[1],pos1Screen[2], size, size, Ends_Type, Set.Vis.BoneEnds.Rotation[0], color)
                 end
             end
         end
