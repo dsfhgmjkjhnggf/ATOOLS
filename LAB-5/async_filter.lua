@@ -1,4 +1,12 @@
 local async_filter = {}
+function async_filter.newAbortToken()
+    local token = {}
+    token.aborted = false
+    function token:abort()
+        self.aborted = true
+    end
+    return token
+end
 function async_filter.filter(arr, predicate)
     local result = {}
     for i, v in ipairs(arr) do
@@ -8,10 +16,14 @@ function async_filter.filter(arr, predicate)
     end
     return result
 end
-function async_filter.filterCallback(arr, predicate, callback)
+function async_filter.filterCallback(arr, predicate, callback, token)
     local co = coroutine.create(function()
         local result = {}
         for i, v in ipairs(arr) do
+            if token and token.aborted then
+                callback("aborted", nil)
+                return
+            end
             local ok = predicate(v, i)
             coroutine.yield()
             if ok then
@@ -52,8 +64,7 @@ local function newPromise(fn)
     fn(_resolve, _reject)
     return promise
 end
-
-function async_filter.filterPromise(arr, predicate)
+function async_filter.filterPromise(arr, predicate, token)
     return newPromise(function(resolve, reject)
         async_filter.filterCallback(arr, predicate, function(err, result)
             if err then
@@ -61,7 +72,7 @@ function async_filter.filterPromise(arr, predicate)
             else
                 resolve(result)
             end
-        end)
+        end, token)
     end)
 end
 return async_filter
