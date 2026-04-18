@@ -27,6 +27,8 @@ local cachedExplodeArgb
 local bipq = require "LAB-4/bipq"
 local max_players = 2
 
+local async_filter = require "LAB-5/async_filter"
+
 -- Текст меню
 local tab = imgui.new.int(1)
 local tabs = {
@@ -400,6 +402,18 @@ function main()
     cjc.load("config/IRA/Settings.json", Set)
     cjc.load("config/IRA/Stats.json", Stats)
     D_Status, Date = initDay()
+    sampRegisterChatCommand('stats-filter', function()
+        local days = {}
+        for date, data in pairs(Stats) do table.insert(days, {date = date, pm = data.pm, warn = data.warn, ban = data.ban}) end
+        async_filter.filterPromise(days, function(day)
+            return day.pm > 0
+        end):andThen(function(result)
+            sampAddChatMessage("Дни с PM активностью:", -1)
+            for _, day in ipairs(result) do
+                sampAddChatMessage(string.format("%s | PM: %d | Warn: %d | Ban: %d", day.date, day.pm, day.warn, day.ban), -1)
+            end
+        end):catch(function(err) sampAddChatMessage("Ошибка фильтрации: " .. tostring(err), -1) end)
+    end)
     sampRegisterChatCommand('pm',function() AddStat("pm", 2) end)
     sampRegisterChatCommand('cc',function() wMain[0] = not wMain[0] end)
     sampRegisterChatCommand('save-cfg',function() Set() end)
