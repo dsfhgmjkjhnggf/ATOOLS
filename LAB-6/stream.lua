@@ -24,4 +24,23 @@ end
 function stream.next(s)
     return s._producer()
 end
+function stream.map(s, fn)
+    return newStream(function()
+        local value, index = s._producer()
+        if value == nil then return nil end
+        return fn(value, index), index
+    end)
+end
+
+function stream.filter(s, predicate)
+    return newStream(function()
+        while true do
+            local value, index = s._producer()
+            if value == nil then return nil end
+            if predicate(value, index) then
+                return value, index
+            end
+        end
+    end)
+end
 return stream
