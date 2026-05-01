@@ -14,11 +14,20 @@ function stream.from(source)
         return newStream(function()
             if coroutine.status(co) == "dead" then return nil end
             local ok, value, index = coroutine.resume(co)
-            if not ok or value == nil then return nil end
+            if not ok then
+                error("Stream producer error: " .. tostring(value))
+            end
+            if value == nil then return nil end
             return value, index
         end)
     elseif type(source) == "function" then
-        return newStream(source)
+        return newStream(function()
+            local ok, value, index = pcall(source)
+            if not ok then
+                error("Stream producer error: " .. tostring(value))
+            end
+            return value, index
+        end)
     end
 end
 function stream.next(s)
@@ -28,16 +37,25 @@ function stream.map(s, fn)
     return newStream(function()
         local value, index = s._producer()
         if value == nil then return nil end
-        return fn(value, index), index
+        local ok, result = pcall(fn, value, index)
+        if not ok then
+            error("Stream map error: " .. tostring(result))
+        end
+        return result, index
     end)
 end
 
-function stream.filter(s, predicate)
+function stream.filter(s, predicate, token)
     return newStream(function()
         while true do
+            if token and token.aborted then return nil end
             local value, index = s._producer()
             if value == nil then return nil end
-            if predicate(value, index) then
+            local ok, result = pcall(predicate, value, index)
+            if not ok then
+                error("Stream filter error: " .. tostring(result))
+            end
+            if result then
                 return value, index
             end
         end
@@ -65,5 +83,28 @@ function stream.skip(s, n)
         end
         return s._producer()
     end)
+end
+
+function stream.forEach(s, fn, token)
+    while true do
+        if token and token.aborted then break end
+        local ok, value, index = pcall(s._producer)
+        if not ok then
+            error("Stream forEach error: " .. tostring(value))
+        end
+        if value == nil then break end
+        local ok2, err = pcall(fn, value, index)
+        if not ok2 then
+            error("Stream forEach callback error: " .. tostring(err))
+        end
+    end
+end
+
+function stream.collect(s)
+    local result = {}
+    stream.forEach(s, function(value)
+        table.insert(result, value)
+    end)
+    return result
 end
 return stream
