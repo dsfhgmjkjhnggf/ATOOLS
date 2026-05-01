@@ -43,4 +43,27 @@ function stream.filter(s, predicate)
         end
     end)
 end
+function stream.take(s, n)
+    local count = 0
+    return newStream(function()
+        if count >= n then return nil end
+        local value, index = s._producer()
+        if value == nil then return nil end
+        count = count + 1
+        return value, index
+    end)
+end
+function stream.skip(s, n)
+    local skipped = false
+    return newStream(function()
+        if not skipped then
+            skipped = true
+            for _ = 1, n do
+                local value = s._producer()
+                if value == nil then return nil end
+            end
+        end
+        return s._producer()
+    end)
+end
 return stream
