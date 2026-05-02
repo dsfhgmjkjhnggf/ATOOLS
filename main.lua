@@ -29,6 +29,8 @@ local max_players = 2
 
 local async_filter = require "LAB-5/async_filter"
 
+local stream = require "LAB-6/stream"
+
 -- Текст меню
 local tab = imgui.new.int(1)
 local tabs = {
@@ -133,7 +135,19 @@ function AddStat(statName, value)
         Stats()
     end
 end
-
+function statsStream()
+    local keys = {}
+    for k in pairs(Stats) do
+        table.insert(keys, k)
+    end
+    local i = 0
+    return stream.from(function()
+        i = i + 1
+        local k = keys[i]
+        if not k then return nil end
+        return {date = k, data = Stats[k]}
+    end)
+end
 local newFrame = imgui.OnFrame(function() return wMain[0] end, function(player)
     imgui.SetNextWindowPos(imgui.ImVec2(sizeX / 2, sizeY / 2), imgui.Cond.FirstUseEver, imgui.ImVec2(0.5, 0.5))
     imgui.SetNextWindowSize(imgui.ImVec2(700, 400), imgui.Cond.FirstUseEver)
@@ -418,6 +432,17 @@ function main()
     sampRegisterChatCommand('cc',function() wMain[0] = not wMain[0] end)
     sampRegisterChatCommand('save-cfg',function() Set() end)
     sampRegisterChatCommand('clear-cfg',function() Set("reset") end)
+    sampRegisterChatCommand('stats-top', function()
+        local days = stream.collect(statsStream())
+        table.sort(days, function(a, b)
+            return (a.data.pm or 0) > (b.data.pm or 0)
+        end)
+        local top = stream.collect(stream.take(stream.from(days), 3))
+        sampAddChatMessage("Топ 3 дня по количеству PM:", -1)
+        for _, s in ipairs(top) do
+            sampAddChatMessage(string.format("%s | PM: %d", s.date, s.data.pm), -1)
+        end
+    end)
     if Set.Vis.Tag.Active[0] then nameTagON() else nameTagOFF() end
     lua_thread.create(Visual)
     lua_thread.create(function()
